@@ -5,14 +5,14 @@ data:
   class_path: vocos.dataset.VocosDataModule
   init_args:
     train_params:
-      filelist_path: ???
+      filelist_path: /home/husein/ssd3/train-vocoder.txt
       sampling_rate: 24000
       num_samples: 16384
-      batch_size: 16
+      batch_size: 64
       num_workers: 8
 
     val_params:
-      filelist_path: ???
+      filelist_path: /home/husein/ssd3/test-vocoder.txt
       sampling_rate: 24000
       num_samples: 48384
       batch_size: 16
@@ -60,9 +60,10 @@ model:
 
 trainer:
   logger:
-    class_path: pytorch_lightning.loggers.TensorBoardLogger
+    class_path: pytorch_lightning.loggers.WandbLogger
     init_args:
-      save_dir: logs/
+      name: malaysian_vocos_mel
+      project: malaysian_vocos_mel
   callbacks:
     - class_path: pytorch_lightning.callbacks.LearningRateMonitor
     - class_path: pytorch_lightning.callbacks.ModelSummary
@@ -80,8 +81,8 @@ trainer:
   # This equals to 1M steps per generator and 1M per discriminator
   max_steps: 2000000
   # You might want to limit val batches when evaluating all the metrics, as they are time-consuming
-  limit_val_batches: 100
+  limit_val_batches: 10
   accelerator: gpu
   strategy: ddp
-  devices: [0]
-  log_every_n_steps: 100
+  gpus: 2
+  log_every_n_steps: 10

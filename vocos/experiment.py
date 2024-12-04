@@ -7,7 +7,7 @@ import torchaudio
 import transformers
 
 from vocos.discriminators import MultiPeriodDiscriminator, MultiResolutionDiscriminator
-from vocos.feature_extractors import FeatureExtractor
+from vocos.feature_extractors import FeatureExtractor, EncodecFeatures
 from vocos.heads import FourierHead
 from vocos.helpers import plot_spectrogram_to_numpy
 from vocos.loss import DiscriminatorLoss, GeneratorLoss, FeatureMatchingLoss, MelSpecReconstructionLoss
@@ -55,6 +55,21 @@ class VocosExp(pl.LightningModule):
         self.feature_extractor = feature_extractor
         self.backbone = backbone
         self.head = head
+        
+        print(self.backbone)
+        
+        state_dict = torch.load('/home/husein/ssd3/vocos/pytorch_model.bin', map_location="cpu")
+        from collections import OrderedDict
+
+        # Adjust keys to match the expected format
+        adjusted_state_dict = OrderedDict()
+        for key, value in state_dict.items():
+            # Remove 'backbone.' prefix if it exists
+            new_key = key.replace("backbone.", "") if key.startswith("backbone.") else key
+            adjusted_state_dict[new_key] = value
+
+        # Load the adjusted state_dict
+        self.backbone.load_state_dict(adjusted_state_dict, strict=False)
 
         self.multiperioddisc = MultiPeriodDiscriminator()
         self.multiresddisc = MultiResolutionDiscriminator()
@@ -162,29 +177,6 @@ class VocosExp(pl.LightningModule):
             self.log("mel_loss_coeff", self.mel_loss_coeff)
             self.log("generator/mel_loss", mel_loss)
 
-            if self.global_step % 1000 == 0 and self.global_rank == 0:
-                self.logger.experiment.add_audio(
-                    "train/audio_in", audio_input[0].data.cpu(), self.global_step, self.hparams.sample_rate
-                )
-                self.logger.experiment.add_audio(
-                    "train/audio_pred", audio_hat[0].data.cpu(), self.global_step, self.hparams.sample_rate
-                )
-                with torch.no_grad():
-                    mel = safe_log(self.melspec_loss.mel_spec(audio_input[0]))
-                    mel_hat = safe_log(self.melspec_loss.mel_spec(audio_hat[0]))
-                self.logger.experiment.add_image(
-                    "train/mel_target",
-                    plot_spectrogram_to_numpy(mel.data.cpu().numpy()),
-                    self.global_step,
-                    dataformats="HWC",
-                )
-                self.logger.experiment.add_image(
-                    "train/mel_pred",
-                    plot_spectrogram_to_numpy(mel_hat.data.cpu().numpy()),
-                    self.global_step,
-                    dataformats="HWC",
-                )
-
             return loss
 
     def on_validation_epoch_start(self):
@@ -240,28 +232,6 @@ class VocosExp(pl.LightningModule):
         }
 
     def validation_epoch_end(self, outputs):
-        if self.global_rank == 0:
-            *_, audio_in, audio_pred = outputs[0].values()
-            self.logger.experiment.add_audio(
-                "val_in", audio_in.data.cpu().numpy(), self.global_step, self.hparams.sample_rate
-            )
-            self.logger.experiment.add_audio(
-                "val_pred", audio_pred.data.cpu().numpy(), self.global_step, self.hparams.sample_rate
-            )
-            mel_target = safe_log(self.melspec_loss.mel_spec(audio_in))
-            mel_hat = safe_log(self.melspec_loss.mel_spec(audio_pred))
-            self.logger.experiment.add_image(
-                "val_mel_target",
-                plot_spectrogram_to_numpy(mel_target.data.cpu().numpy()),
-                self.global_step,
-                dataformats="HWC",
-            )
-            self.logger.experiment.add_image(
-                "val_mel_hat",
-                plot_spectrogram_to_numpy(mel_hat.data.cpu().numpy()),
-                self.global_step,
-                dataformats="HWC",
-            )
         avg_loss = torch.stack([x["val_loss"] for x in outputs]).mean()
         mel_loss = torch.stack([x["mel_loss"] for x in outputs]).mean()
         utmos_score = torch.stack([x["utmos_score"] for x in outputs]).mean()
