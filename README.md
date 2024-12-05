@@ -99,7 +99,9 @@ find $VAL_DATASET_DIR -name *.wav > filelist.val
 Fill a config file, e.g. [vocos.yaml](configs%2Fvocos.yaml), with your filelist paths and start training with:
 
 ```bash
-python train.py -c configs/vocos.yaml
+CUDA_VISIBLE_DEVICES=0,1 torchrun \
+--nproc-per-node=2 \
+train.py -c configs/vocos.yaml
 ```
 
 Refer to [Pytorch Lightning documentation](https://lightning.ai/docs/pytorch/stable/) for details about customizing the
