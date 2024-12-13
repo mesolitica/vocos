@@ -100,6 +100,15 @@ Fill a config file, e.g. [vocos.yaml](configs%2Fvocos.yaml), with your filelist 
 
 ```bash
 torchrun \
+--nproc-per-node=1 \
+train.py -c configs/vocos-v2.yaml \
+--trainer.resume_from_checkpoint malaysian_vocos_mel_v2/last.ckpt
+```
+
+Run on single process first to download necessary models, after that scale up to multiGPUs,
+
+```bash
+torchrun \
 --nproc-per-node=4 \
 train.py -c configs/vocos-v2.yaml \
 --trainer.resume_from_checkpoint malaysian_vocos_mel_v2/last.ckpt
